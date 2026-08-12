@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>陽春白雪KTV｜點歌牆</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Monoton&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#0A0E27;
+    --bg-panel:#131832;
+    --bg-panel-2:#1B2147;
+    --magenta:#FF2A6D;
+    --cyan:#05D9E8;
+    --gold:#FFD23F;
+    --text:#F2F2F7;
+    --text-muted:#8A8FB8;
+    --line: rgba(138,143,184,0.18);
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; height:100%;
+    background: radial-gradient(120% 140% at 15% 0%, #171d40 0%, var(--bg-deep) 55%);
+    color:var(--text);
+    font-family:"Noto Sans TC", sans-serif;
+    overflow:hidden;
+  }
+  .logo{
+    font-family:"Monoton", cursive;
+    font-size:20px;
+    letter-spacing:2px;
+    color:var(--cyan);
+    text-shadow: 0 0 8px rgba(5,217,232,0.7), 0 0 22px rgba(5,217,232,0.35);
+  }
+  .layout{
+    display:grid;
+    grid-template-columns: 62% 38%;
+    height:100vh;
+    width:100vw;
+  }
+
+  /* ---------- 左側：播放器 ---------- */
+  .left{
+    display:flex; flex-direction:column;
+    padding:22px 18px 22px 26px;
+    min-width:0;
+  }
+  .left-head{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:14px;
+  }
+  .now-badge{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:6px 14px;
+    border-radius:999px;
+    font-weight:900; font-size:13px; letter-spacing:2px;
+    background: rgba(255,42,109,0.12);
+    border:1px solid rgba(255,42,109,0.55);
+    color: var(--magenta);
+    text-shadow:0 0 6px rgba(255,42,109,0.6);
+    animation: pulse 1.8s ease-in-out infinite;
+  }
+  .now-badge .dot{
+    width:8px;height:8px;border-radius:50%;
+    background:var(--magenta);
+    box-shadow:0 0 8px var(--magenta), 0 0 16px var(--magenta);
+  }
+  @keyframes pulse{
+    0%,100%{ box-shadow:0 0 0 rgba(255,42,109,0);}
+    50%{ box-shadow:0 0 18px rgba(255,42,109,0.35);}
+  }
+  .idle-badge{
+    background: rgba(5,217,232,0.10);
+    border:1px solid rgba(5,217,232,0.5);
+    color:var(--cyan);
+    text-shadow:0 0 6px rgba(5,217,232,0.5);
+  }
+
+  .player-frame{
+    position:relative;
+    flex:1;
+    border-radius:18px;
+    overflow:hidden;
+    background:#000;
+    border:1px solid var(--line);
+    box-shadow: 0 0 0 1px rgba(5,217,232,0.06), 0 20px 60px rgba(0,0,0,0.55);
+  }
+  .player-frame iframe, .player-frame .empty-state{
+    position:absolute; inset:0; width:100%; height:100%; border:0;
+  }
+  .empty-state{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:10px; color:var(--text-muted);
+    background: linear-gradient(160deg, #10142c, #0a0d20);
+  }
+  .empty-state .big{ font-size:22px; font-weight:700; color:var(--text);}
+
+  /* 底部發光地平線，作為簽名元素 */
+  .horizon{
+    height:3px; margin-top:14px; border-radius:3px;
+    background: linear-gradient(90deg, transparent, var(--cyan), var(--magenta), var(--gold), transparent);
+    box-shadow: 0 0 16px rgba(5,217,232,0.5), 0 0 26px rgba(255,42,109,0.35);
+    opacity:0.85;
+  }
+
+  .song-meta{
+    margin-top:14px;
+    display:flex; align-items:baseline; justify-content:space-between; gap:14px;
+  }
+  .song-meta .title{ font-size:26px; font-weight:900; }
+  .song-meta .artist{ font-size:15px; color:var(--text-muted); margin-top:4px;}
+  .song-meta .source-tag{
+    flex-shrink:0;
+    font-size:12px; font-weight:700; letter-spacing:1px;
+    padding:4px 10px; border-radius:8px;
+    color:var(--gold); border:1px solid rgba(255,210,63,0.5); background: rgba(255,210,63,0.08);
+  }
+
+  .up-next{
+    margin-top:16px;
+    background:var(--bg-panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:12px 16px;
+    max-height:120px; overflow-y:auto;
+  }
+  .up-next h3{
+    margin:0 0 8px; font-size:12px; letter-spacing:2px; color:var(--text-muted); font-weight:700;
+  }
+  .up-next ul{ list-style:none; margin:0; padding:0; }
+  .up-next li{
+    display:flex; justify-content:space-between; gap:10px;
+    padding:6px 0; font-size:14px;
+    border-top:1px solid var(--line);
+  }
+  .up-next li:first-child{ border-top:none; }
+  .up-next .idx{ color:var(--cyan); font-weight:900; margin-right:8px;}
+  .up-next .empty{ color:var(--text-muted); font-size:13px; }
+
+  /* ---------- 右側：QR + 分類 ---------- */
+  .right{
+    background:var(--bg-panel);
+    border-left:1px solid var(--line);
+    padding:22px 22px 16px;
+    display:flex; flex-direction:column;
+    min-width:0;
+  }
+  .right-top{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:16px;
+  }
+  .qr-box{
+    display:flex; align-items:center; gap:12px;
+    background:var(--bg-panel-2);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:10px 14px;
+  }
+  .qr-box img{
+    width:76px; height:76px; border-radius:8px; background:#fff; padding:4px;
+  }
+  .qr-box .qr-text .t1{ font-weight:900; font-size:14px; }
+  .qr-box .qr-text .t2{ font-size:12px; color:var(--text-muted); margin-top:2px;}
+
+  .song-count{
+    font-size:12px; color:var(--text-muted);
+    text-align:right;
+  }
+  .song-count b{ color:var(--gold); font-size:16px; }
+
+  .crumb{
+    display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap;
+    font-size:13px; color:var(--text-muted);
+  }
+  .crumb button{
+    background:none; border:none; color:var(--cyan); font-weight:700; cursor:pointer; font-size:13px; padding:0;
+  }
+
+  .cat-grid{
+    display:grid; grid-template-columns:1fr 1fr; gap:12px;
+  }
+  .cat-card{
+    cursor:pointer;
+    border-radius:16px;
+    padding:22px 16px;
+    text-align:center;
+    font-weight:900; font-size:20px;
+    border:1px solid var(--line);
+    background: linear-gradient(150deg, var(--bg-panel-2), #0f1330);
+    transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  }
+  .cat-card:hover{
+    transform: translateY(-2px);
+    border-color: var(--cyan);
+    box-shadow: 0 8px 24px rgba(5,217,232,0.18);
+  }
+  .cat-card small{
+    display:block; font-size:11px; font-weight:500; color:var(--text-muted); margin-top:6px; letter-spacing:1px;
+  }
+  .cat-card.c-華語{ color:var(--magenta); }
+  .cat-card.c-方言{ color:var(--gold); }
+  .cat-card.c-韓語{ color:var(--cyan); }
+  .cat-card.c-西洋{ color:#B98CFF; }
+
+  .sub-grid{
+    display:grid; grid-template-columns:1fr 1fr; gap:10px;
+  }
+  .sub-card{
+    cursor:pointer;
+    border-radius:12px;
+    padding:16px 10px;
+    text-align:center;
+    font-weight:700; font-size:15px;
+    border:1px solid var(--line);
+    background: var(--bg-panel-2);
+  }
+  .sub-card:hover{ border-color: var(--magenta); }
+
+  .song-list{
+    flex:1; overflow-y:auto; margin-top:4px;
+    display:flex; flex-direction:column; gap:8px;
+  }
+  .song-row{
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+    background:var(--bg-panel-2);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:10px 12px;
+    cursor:pointer;
+  }
+  .song-row:hover{ border-color:var(--gold); }
+  .song-row .t{ font-weight:700; font-size:14px; }
+  .song-row .a{ font-size:12px; color:var(--text-muted); }
+  .song-row .add{
+    flex-shrink:0;
+    font-size:12px; font-weight:900; color:var(--bg-deep);
+    background:var(--gold);
+    border-radius:8px; padding:6px 10px;
+  }
+  .song-list .empty{ color:var(--text-muted); font-size:13px; text-align:center; padding:20px 0;}
+
+  .toast{
+    position:fixed; left:50%; bottom:26px; transform:translateX(-50%) translateY(20px);
+    background:var(--gold); color:#141428; font-weight:900; font-size:14px;
+    padding:10px 20px; border-radius:999px; opacity:0; pointer-events:none;
+    transition: all .25s ease; box-shadow:0 10px 30px rgba(0,0,0,0.4);
+    z-index:50;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  ::-webkit-scrollbar{ width:6px; }
+  ::-webkit-scrollbar-thumb{ background:var(--line); border-radius:6px; }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <!-- 左側：播放器 -->
+  <div class="left">
+    <div class="left-head">
+      <span class="logo">陽春白雪KTV</span>
+      <span id="statusBadge" class="now-badge idle-badge"><span class="dot"></span>隨機播放中</span>
+    </div>
+
+    <div class="player-frame" id="playerFrame">
+      <div class="empty-state" id="emptyState">
+        <div class="big">尚未載入歌曲庫</div>
+        <div>請稍候…</div>
+      </div>
+    </div>
+
+    <div class="horizon"></div>
+
+    <div class="song-meta">
+      <div>
+        <div class="title" id="curTitle">—</div>
+        <div class="artist" id="curArtist">—</div>
+      </div>
+      <div class="source-tag" id="curSource">原唱</div>
+    </div>
+
+    <div class="up-next">
+      <h3>接下來播放</h3>
+      <ul id="upNextList"><li class="empty">目前沒有排隊中的點歌</li></ul>
+    </div>
+  </div>
+
+  <!-- 右側：QR + 分類選歌 -->
+  <div class="right">
+    <div class="right-top">
+      <div class="qr-box">
+        <img id="qrImg" src="" alt="掃碼點歌" />
+        <div class="qr-text">
+          <div class="t1">掃碼點歌</div>
+          <div class="t2">用手機立即加入排隊</div>
+        </div>
+      </div>
+      <div class="song-count">歌曲庫共<br/><b id="songCount">0</b> 首</div>
+    </div>
+
+    <div class="crumb" id="crumb"></div>
+    <div id="browseArea"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="ktv-utils.js"></script>
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+/* ============ 狀態 ============ */
+let allSongs = [];           // 歌曲庫快取
+let queueDocs = [];          // 目前佇列（依 order 排序）
+let currentQueueId = null;   // 目前播放的 queue 文件 id（若是隨機播放則為 null）
+let randomSong = null;       // 隨機播放模式下目前播放的歌
+let ytPlayer = null;         // YouTube IFrame Player 實例
+let ytReady = false;
+let navPath = { lang:null, type:null }; // 右側瀏覽路徑
+
+/* ============ QR Code ============ */
+document.getElementById("qrImg").src =
+  "https://api.qrserver.com/v1/create-qr-code/?size=160x160&margin=0&data=" + encodeURIComponent(ORDER_PAGE_URL);
+
+/* ============ 歌曲庫載入 ============ */
+db.collection("songs").onSnapshot(snap => {
+  allSongs = [];
+  snap.forEach(doc => allSongs.push({ id: doc.id, ...doc.data() }));
+  document.getElementById("songCount").textContent = allSongs.length;
+  renderBrowse();
+});
+
+/* ============ 佇列監聽 ============ */
+db.collection("queue").orderBy("order", "asc").onSnapshot(snap => {
+  queueDocs = [];
+  snap.forEach(doc => queueDocs.push({ id: doc.id, ...doc.data() }));
+  renderUpNext();
+  syncPlayer();
+});
+
+function renderUpNext(){
+  const list = document.getElementById("upNextList");
+  const rest = queueDocs.slice(1); // 第一首視為「正在播放」
+  if (rest.length === 0){
+    list.innerHTML = '<li class="empty">目前沒有排隊中的點歌</li>';
+    return;
+  }
+  list.innerHTML = rest.map((q,i) =>
+    `<li><span><span class="idx">${i+1}</span>${escapeHtml(q.title)}</span><span>${escapeHtml(q.artist||"")}</span></li>`
+  ).join("");
+}
+
+/* ============ 播放器同步 ============ */
+function syncPlayer(){
+  if (queueDocs.length > 0){
+    const cur = queueDocs[0];
+    if (cur.id !== currentQueueId){
+      currentQueueId = cur.id;
+      randomSong = null;
+      loadIntoPlayer(cur.title, cur.artist, cur.playingSource === "cover" ? cur.urlCover : cur.urlOriginal, cur.playingSource === "cover" ? "伴唱" : "原唱", true);
+    } else {
+      // 同一首歌，但可能原唱/伴唱切換了
+      const wantUrl = cur.playingSource === "cover" ? cur.urlCover : cur.urlOriginal;
+      if (wantUrl && wantUrl !== currentLoadedUrl){
+        loadIntoPlayer(cur.title, cur.artist, wantUrl, cur.playingSource === "cover" ? "伴唱" : "原唱", true);
+      }
+    }
+    document.getElementById("statusBadge").className = "now-badge";
+    document.getElementById("statusBadge").innerHTML = '<span class="dot"></span>點播中';
+  } else {
+    currentQueueId = null;
+    document.getElementById("statusBadge").className = "now-badge idle-badge";
+    document.getElementById("statusBadge").innerHTML = '<span class="dot"></span>隨機播放中';
+    if (!randomSong && allSongs.length > 0){
+      playRandomSong();
+    }
+  }
+}
+
+let currentLoadedUrl = null;
+
+function playRandomSong(){
+  if (allSongs.length === 0) return;
+  randomSong = allSongs[Math.floor(Math.random() * allSongs.length)];
+  loadIntoPlayer(randomSong.title, randomSong.artist, randomSong.urlOriginal, "原唱", false);
+}
+
+function loadIntoPlayer(title, artist, url, sourceLabel, isQueued){
+  currentLoadedUrl = url;
+  document.getElementById("curTitle").textContent = title || "—";
+  document.getElementById("curArtist").textContent = artist || "—";
+  document.getElementById("curSource").textContent = sourceLabel;
+
+  const parsed = parseVideoUrl(url);
+  const frame = document.getElementById("playerFrame");
+  ytPlayer = null; // 舊的 player 物件隨 DOM 一起被換掉，重置旗標避免誤判
+
+  if (!parsed.ok){
+    frame.innerHTML = `<div class="empty-state"><div class="big">無法辨識此網址</div><div>請確認為 YouTube / Bilibili / Odysee 連結</div></div>`;
+    return;
+  }
+
+  if (parsed.platform === "youtube"){
+    frame.innerHTML = `<div id="ytHost" style="position:absolute;inset:0;"></div>`;
+    if (window.YT && window.YT.Player){
+      ytPlayer = new YT.Player("ytHost", {
+        width:"100%", height:"100%", videoId: parsed.videoId,
+        playerVars:{ autoplay:1, rel:0, playsinline:1 },
+        events:{ onStateChange: onYtStateChange }
+      });
+    } else {
+      // API 尚未就緒時先用一般 iframe，稍後 onYouTubeIframeAPIReady 會補上控制權
+      frame.innerHTML = `<iframe src="${parsed.embedUrl}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+    }
+  } else {
+    // Bilibili / Odysee：無法可靠偵測播放結束事件，僅嵌入播放
+    frame.innerHTML = `<iframe src="${parsed.embedUrl}" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>`;
+    // 若在「隨機播放」模式下，用時間備援機制自動切下一首（無法精準偵測結束時間）
+    if (!isQueued){
+      clearTimeout(window._idleFallbackTimer);
+      window._idleFallbackTimer = setTimeout(() => {
+        if (!currentQueueId) playRandomSong();
+      }, 4.5 * 60 * 1000);
+    }
+  }
+}
+
+function onYouTubeIframeAPIReady(){
+  ytReady = true;
+  // 若在 API 就緒前，第一支影片已用陽春版 iframe 載入播放，
+  // 這裡重新載入一次，讓它升級為可偵測「播放結束」的正式 YT.Player。
+  if (currentLoadedUrl){
+    const parsed = parseVideoUrl(currentLoadedUrl);
+    if (parsed.platform === "youtube" && !ytPlayer){
+      const title = document.getElementById("curTitle").textContent;
+      const artist = document.getElementById("curArtist").textContent;
+      const sourceLabel = document.getElementById("curSource").textContent;
+      loadIntoPlayer(title, artist, currentLoadedUrl, sourceLabel, !!currentQueueId);
+    }
+  }
+}
+
+function onYtStateChange(e){
+  if (e.data === YT.PlayerState.ENDED){
+    handleVideoEnded();
+  }
+}
+
+function handleVideoEnded(){
+  if (currentQueueId){
+    // 有人點播的歌播完了：從佇列移除，交給後台/監聽自動推進下一首
+    db.collection("queue").doc(currentQueueId).delete().catch(()=>{});
+  } else {
+    // 隨機播放模式：換下一首隨機歌曲
+    playRandomSong();
+  }
+}
+
+/* ============ 右側：分類瀏覽 ============ */
+function renderBrowse(){
+  const area = document.getElementById("browseArea");
+  const crumb = document.getElementById("crumb");
+
+  if (!navPath.lang){
+    crumb.innerHTML = "";
+    area.innerHTML = `<div class="cat-grid">` + LANGUAGE_CATS.map(l =>
+      `<div class="cat-card c-${l}" onclick="selectLang('${l}')">${l}<small>${countByLang(l)} 首</small></div>`
+    ).join("") + `</div>`;
+    return;
+  }
+
+  if (!navPath.type){
+    crumb.innerHTML = `<button onclick="backToLang()">← 分類</button><span>／ ${navPath.lang}</span>`;
+    area.innerHTML = `<div class="sub-grid">` + SINGER_TYPES.map(t =>
+      `<div class="sub-card" onclick="selectType('${t}')">${t}</div>`
+    ).join("") + `</div>`;
+    return;
+  }
+
+  crumb.innerHTML = `<button onclick="backToLang()">← 分類</button><span>／ ${navPath.lang} ／ ${navPath.type}</span>`;
+  const songs = allSongs.filter(s => s.language === navPath.lang && s.singerType === navPath.type);
+  if (songs.length === 0){
+    area.innerHTML = `<div class="song-list"><div class="empty">此分類目前沒有歌曲</div></div>`;
+    return;
+  }
+  area.innerHTML = `<div class="song-list">` + songs.map(s =>
+    `<div class="song-row" onclick="addToQueue('${s.id}')">
+       <div><div class="t">${escapeHtml(s.title)}</div><div class="a">${escapeHtml(s.artist||"")}</div></div>
+       <div class="add">加入</div>
+     </div>`
+  ).join("") + `</div>`;
+}
+
+function countByLang(l){ return allSongs.filter(s => s.language === l).length; }
+function selectLang(l){ navPath = { lang:l, type:null }; renderBrowse(); }
+function selectType(t){ navPath.type = t; renderBrowse(); }
+function backToLang(){ navPath = { lang:null, type:null }; renderBrowse(); }
+
+function addToQueue(songId){
+  const song = allSongs.find(s => s.id === songId);
+  if (!song) return;
+  db.collection("queue").add({
+    songId: song.id,
+    title: song.title,
+    artist: song.artist || "",
+    urlOriginal: song.urlOriginal || "",
+    urlCover: song.urlCover || "",
+    playingSource: "original",
+    order: Date.now(),
+    addedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    requestedBy: "電視牆現場點歌"
+  }).then(()=> showToast(`已加入點歌：${song.title}`));
+}
+
+function showToast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(()=> t.classList.remove("show"), 2200);
+}
+</script>
+</body>
+</html>
