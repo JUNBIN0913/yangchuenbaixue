@@ -42,4 +42,4 @@ const FIREBASE_CONFIG = {
 
 // 點歌頁（order.html）的完整網址，用來產生首頁右上角的 QR Code。
 // 部署後請改成你實際的網址，例如 GitHub Pages 網址。
-const ORDER_PAGE_URL = "https://YOUR_DOMAIN/order.html";
+const ORDER_PAGE_URL = "https://junbin0913.github.io/yangchuenbaixue/order.html";
