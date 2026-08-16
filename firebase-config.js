@@ -32,12 +32,13 @@
  */
 
 const FIREBASE_CONFIG = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyAddet--nHh0wLCLt__kY89ImZ_2bnEDd4",
+  authDomain: "yangchuenbaixue.firebaseapp.com",
+  projectId: "yangchuenbaixue",
+  storageBucket: "yangchuenbaixue.firebasestorage.app",
+  messagingSenderId: "729817001481",
+  appId: "1:729817001481:web:b443d68c6758b5a67292d8",
+  measurementId: "G-82GFVJ3M81"
 };
 
 // 點歌頁（order.html）的完整網址，用來產生首頁右上角的 QR Code。
