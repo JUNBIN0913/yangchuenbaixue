@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>陽春白雪KTV｜點歌牆</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F5F6FA;
+    --panel:#FFFFFF;
+    --border:#E7E9F2;
+    --text:#1F2430;
+    --text-muted:#8A90A6;
+    --blue:#3B6CF4;
+    --blue-soft:#EAF0FE;
+    --gold:#F5A623;
+    --red:#E5484D;
+    --green:#22B573;
+    --shadow: 0 2px 10px rgba(31,36,48,0.06);
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:var(--bg); color:var(--text);
+    font-family:"Noto Sans TC", sans-serif;
+    overflow:hidden;
+  }
+
+  /* ---------- 頂部列 ---------- */
+  header{
+    height:60px; background:var(--panel); border-bottom:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0 20px;
+  }
+  .logo{ display:flex; align-items:center; gap:8px; font-weight:900; font-size:18px; color:var(--blue); }
+  .logo .emoji{ font-size:20px; }
+  .top-actions{ display:flex; gap:10px; }
+  .top-btn{
+    display:flex; align-items:center; gap:6px;
+    border:none; border-radius:9px; padding:9px 16px;
+    font-weight:900; font-size:13px; color:#fff; cursor:pointer; font-family:inherit;
+  }
+  .top-btn.gold{ background:var(--gold); }
+  .top-btn.red{ background:var(--red); }
+  .top-btn.green{ background:var(--green); }
+  .top-btn.gray{ background:#5B6478; }
+  .top-btn:active{ transform: scale(0.97); }
+
+  /* ---------- 主體 ---------- */
+  .layout{
+    display:grid; grid-template-columns: 62% 38%;
+    height:calc(100vh - 60px); width:100vw;
+    transition: grid-template-columns .5s ease;
+  }
+  .layout.fullscreen-mode{ grid-template-columns: 100% 0%; }
+  .layout.fullscreen-mode .right{ opacity:0; pointer-events:none; }
+
+  /* 左側播放器 */
+  .left{ position:relative; background:#000; }
+  .left iframe, .left .empty-state{ position:absolute; inset:0; width:100%; height:100%; border:0; }
+  .empty-state{
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+    color:#8A90A6; background:#0d0f1a;
+  }
+  .empty-state .big{ font-size:20px; font-weight:700; color:#fff; }
+
+  .status-pill{
+    position:absolute; top:16px; left:16px; z-index:5;
+    display:inline-flex; align-items:center; gap:8px;
+    background:rgba(255,255,255,0.95); color:var(--text);
+    padding:8px 16px; border-radius:999px; font-weight:700; font-size:13px;
+    box-shadow:var(--shadow);
+    pointer-events:none;
+  }
+  .status-pill .dot{
+    width:8px; height:8px; border-radius:50%; background:var(--blue);
+  }
+  .status-pill.playing .dot{ background:var(--red); }
+
+  .browse-wake-btn{
+    position:absolute; top:60px; left:16px; z-index:6;
+    display:none; align-items:center; gap:6px;
+    background:var(--blue); color:#fff; border:none;
+    padding:8px 16px; border-radius:999px; font-weight:900; font-size:13px;
+    cursor:pointer; font-family:inherit; box-shadow:var(--shadow);
+  }
+  .layout.fullscreen-mode .browse-wake-btn{ display:inline-flex; }
+
+  .now-info{
+    position:absolute; top:16px; right:16px; z-index:5;
+    background:rgba(255,255,255,0.95); padding:10px 16px; border-radius:14px;
+    box-shadow:var(--shadow); max-width:50%; text-align:right;
+    pointer-events:none;
+  }
+  .now-info .title{ font-size:15px; font-weight:900; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .now-info .artist{ font-size:12px; color:var(--text-muted); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .now-info .source-tag{
+    display:inline-block; margin-top:6px; font-size:11px; font-weight:700; color:#141428; background:var(--gold);
+    padding:3px 10px; border-radius:7px;
+  }
+
+  /* 右側 */
+  .right{
+    background:var(--panel); display:flex; flex-direction:column; min-width:0;
+    border-left:1px solid var(--border);
+    transition: opacity .3s ease;
+  }
+  .search-wrap{ padding:16px 16px 0; }
+  .search-box{
+    display:flex; align-items:center; gap:8px;
+    background:var(--bg); border:1px solid var(--border); border-radius:12px;
+    padding:11px 14px;
+  }
+  .search-box input{
+    border:none; background:transparent; outline:none; font-size:14px; font-family:inherit;
+    flex:1; color:var(--text);
+  }
+  .search-box .icon{ color:var(--text-muted); font-size:15px; }
+
+  .tabs{ display:flex; margin-top:14px; border-bottom:1px solid var(--border); padding:0 16px; }
+  .tab{
+    flex:1; text-align:center; padding:12px 0; font-weight:900; font-size:14px;
+    color:var(--text-muted); cursor:pointer; border-bottom:3px solid transparent; margin-bottom:-1px;
+  }
+  .tab.active{ color:var(--blue); border-bottom-color:var(--blue); }
+
+  .tab-content{ flex:1; overflow-y:auto; padding:16px; }
+
+  .crumb{ display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap; font-size:13px; color:var(--text-muted); }
+  .crumb button{ background:none; border:none; color:var(--blue); font-weight:700; cursor:pointer; font-size:13px; padding:0; font-family:inherit; }
+
+  .cat-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .cat-card{
+    cursor:pointer; border-radius:14px; padding:20px 14px; text-align:center;
+    font-weight:900; font-size:17px; border:1px solid var(--border);
+    background:#fff; box-shadow:var(--shadow);
+    transition: transform .12s ease, border-color .12s ease;
+  }
+  .cat-card:hover{ transform:translateY(-2px); border-color:var(--blue); }
+  .cat-card small{ display:block; font-size:12px; font-weight:700; color:var(--blue); margin-top:6px; }
+
+  .sub-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .sub-card{
+    cursor:pointer; border-radius:12px; padding:16px 10px; text-align:center; font-weight:700; font-size:14px;
+    border:1px solid var(--border); background:#fff; box-shadow:var(--shadow);
+  }
+  .sub-card:hover{ border-color:var(--blue); }
+
+  .song-list{ display:flex; flex-direction:column; gap:8px; }
+  .song-row{
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+    background:#fff; border:1px solid var(--border); border-radius:12px; padding:11px 14px; cursor:pointer;
+  }
+  .song-row:hover{ border-color:var(--blue); }
+  .song-row .t{ font-weight:700; font-size:14px; }
+  .song-row .a{ font-size:12px; color:var(--text-muted); margin-top:1px;}
+  .song-row .add{ flex-shrink:0; font-size:12px; font-weight:900; color:#fff; background:var(--blue); border-radius:8px; padding:7px 12px; }
+  .empty-note{ color:var(--text-muted); font-size:13px; text-align:center; padding:28px 0; }
+
+  .queue-row{
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+    background:#fff; border:1px solid var(--border); border-radius:12px; padding:11px 14px; margin-bottom:8px;
+  }
+  .queue-row .idx{ color:var(--blue); font-weight:900; margin-right:8px; }
+  .queue-row .now-tag{ font-size:11px; font-weight:900; color:#fff; background:var(--red); padding:3px 9px; border-radius:7px; }
+  .queue-row .remove-btn{ border:none; background:none; color:var(--text-muted); font-size:13px; cursor:pointer; font-family:inherit; }
+  .queue-row .remove-btn:hover{ color:var(--red); }
+
+  /* QR Modal */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(20,20,40,0.55); z-index:50;
+    display:none; align-items:center; justify-content:center;
+  }
+  .modal-overlay.show{ display:flex; }
+  .modal-box{
+    background:#fff; border-radius:20px; padding:32px 36px; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,0.3);
+  }
+  .modal-box img{ width:220px; height:220px; border-radius:12px; }
+  .modal-box .t1{ font-weight:900; font-size:18px; margin-top:16px; }
+  .modal-box .t2{ font-size:13px; color:var(--text-muted); margin-top:4px; }
+  .modal-box button{
+    margin-top:18px; border:none; background:var(--bg); color:var(--text); font-weight:700;
+    padding:9px 20px; border-radius:9px; cursor:pointer; font-family:inherit;
+  }
+
+  .toast{
+    position:fixed; left:50%; bottom:26px; transform:translateX(-50%) translateY(20px);
+    background:var(--text); color:#fff; font-weight:700; font-size:14px;
+    padding:10px 20px; border-radius:999px; opacity:0; pointer-events:none;
+    transition: all .25s ease; box-shadow:0 10px 30px rgba(0,0,0,0.25); z-index:60;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  ::-webkit-scrollbar{ width:6px; }
+  ::-webkit-scrollbar-thumb{ background:var(--border); border-radius:6px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><span class="emoji">🎤</span>陽春白雪KTV</div>
+  <div class="top-actions">
+    <button class="top-btn gold" id="playPauseBtn" onclick="togglePlayPause()">⏸ 暫停/播放</button>
+    <button class="top-btn red" onclick="skipSongFromTV()">⏭ 切歌</button>
+    <button class="top-btn green" onclick="showQrModal()">📱 手機點歌</button>
+    <button class="top-btn gray" onclick="window.open('admin.html', '_blank')">🔧 後臺</button>
+  </div>
+</header>
+
+<div class="layout" id="layoutRoot">
+  <!-- 左側：播放器 -->
+  <div class="left" id="playerFrame">
+    <div class="status-pill" id="statusPill"><span class="dot"></span><span id="statusText">隨機播放中…</span></div>
+    <button class="browse-wake-btn" onclick="resetIdleTimer()">🎵 瀏覽選曲</button>
+    <div class="empty-state" id="emptyState">
+      <div class="big">尚未載入歌曲庫</div>
+      <div>請稍候…</div>
+    </div>
+    <div class="now-info">
+      <div class="title" id="curTitle">—</div>
+      <div class="artist" id="curArtist">—</div>
+      <div class="source-tag" id="curSource">原唱</div>
+    </div>
+  </div>
+
+  <!-- 右側：搜尋 + 分頁 -->
+  <div class="right">
+    <div class="search-wrap">
+      <div class="search-box">
+        <span class="icon">🔍</span>
+        <input id="searchInput" placeholder="找歌手、歌名…" oninput="onSearch()" />
+      </div>
+    </div>
+    <div class="tabs">
+      <div class="tab active" id="tabLibrary" onclick="switchTab('library')">歌曲庫</div>
+      <div class="tab" id="tabQueue" onclick="switchTab('queue')">已點 (<span id="queueCount">0</span>)</div>
+    </div>
+    <div class="tab-content" id="tabContent"></div>
+  </div>
+</div>
+
+<!-- QR Modal -->
+<div class="modal-overlay" id="qrModal">
+  <div class="modal-box">
+    <img id="qrImg" src="" alt="掃碼點歌" />
+    <div class="t1">掃碼點歌</div>
+    <div class="t2">用手機掃描，立即加入排隊</div>
+    <button onclick="hideQrModal()">關閉</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="ktv-utils.js"></script>
+<script src="qrcode-lib.js"></script>
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+/* ============ 狀態 ============ */
+let allSongs = [];
+let queueDocs = [];
+let currentQueueId = null;
+let randomSong = null;
+let ytPlayer = null;
+let currentLoadedUrl = null;
+let isPaused = false;
+let activeTab = "library";
+let navPath = { lang:null, type:null };
+let searchTerm = "";
+let lastQueueLen = 0;
+let idleTimer = null;
+let isFullscreenMode = false;
+
+/* ============ 閒置自動全螢幕：超過 5 秒沒有新點歌，就把播放器放大 ============ */
+function resetIdleTimer(){
+  clearTimeout(idleTimer);
+  if (isFullscreenMode) exitFullscreenPlayer();
+  idleTimer = setTimeout(enterFullscreenPlayer, 5000);
+}
+function enterFullscreenPlayer(){
+  isFullscreenMode = true;
+  document.getElementById("layoutRoot").classList.add("fullscreen-mode");
+}
+function exitFullscreenPlayer(){
+  isFullscreenMode = false;
+  document.getElementById("layoutRoot").classList.remove("fullscreen-mode");
+}
+resetIdleTimer();
+
+/* ============ QR（完全在瀏覽器端產生，不依賴任何外部 QR 圖片服務，避免被廣告攔截器或網路限制擋掉） ============ */
+(function renderQrCode(){
+  try{
+    const qr = qrcode(0, "M"); // typeNumber=0 讓函式庫自動依內容長度決定大小
+    qr.addData(ORDER_PAGE_URL);
+    qr.make();
+    document.getElementById("qrImg").outerHTML = qr.createImgTag(6, 8, "掃碼點歌");
+  }catch(e){
+    console.warn("QR 碼產生失敗：", e);
+  }
+})();
+function showQrModal(){ document.getElementById("qrModal").classList.add("show"); }
+function hideQrModal(){ document.getElementById("qrModal").classList.remove("show"); }
+
+/* ============ 初始畫面（避免 Firebase 尚未設定時整頁空白） ============ */
+renderTabContent();
+
+try{
+  db.collection("songs").onSnapshot(snap => {
+    allSongs = [];
+    snap.forEach(doc => allSongs.push({ id: doc.id, ...doc.data() }));
+    renderTabContent();
+  }, err => console.warn("songs 讀取失敗，請確認 firebase-config.js：", err));
+
+  db.collection("queue").orderBy("order", "asc").onSnapshot(snap => {
+    queueDocs = [];
+    snap.forEach(doc => queueDocs.push({ id: doc.id, ...doc.data() }));
+    document.getElementById("queueCount").textContent = queueDocs.length;
+    if (queueDocs.length > lastQueueLen) resetIdleTimer(); // 有新歌被點播（不論來自電視牆、手機或後台），重新倒數
+    lastQueueLen = queueDocs.length;
+    if (activeTab === "queue") renderTabContent();
+    syncPlayer();
+  }, err => console.warn("queue 讀取失敗，請確認 firebase-config.js：", err));
+}catch(e){
+  console.warn("Firebase 尚未正確設定，目前僅顯示畫面架構：", e);
+}
+
+/* ============ 分頁切換 ============ */
+function switchTab(tab){
+  activeTab = tab;
+  document.getElementById("tabLibrary").classList.toggle("active", tab === "library");
+  document.getElementById("tabQueue").classList.toggle("active", tab === "queue");
+  renderTabContent();
+}
+
+function onSearch(){
+  searchTerm = document.getElementById("searchInput").value.trim();
+  if (searchTerm && activeTab !== "library") switchTab("library");
+  else renderTabContent();
+}
+
+function renderTabContent(){
+  const el = document.getElementById("tabContent");
+  if (activeTab === "queue"){
+    renderQueueTab(el);
+    return;
+  }
+  renderLibraryTab(el);
+}
+
+function renderLibraryTab(el){
+  if (searchTerm){
+    const results = allSongs.filter(s => (s.title||"").includes(searchTerm) || (s.artist||"").includes(searchTerm));
+    el.innerHTML = `<div class="crumb">搜尋結果：「${escapeHtml(searchTerm)}」</div>` + songListHtml(results);
+    return;
+  }
+
+  if (!navPath.lang){
+    el.innerHTML = `<div class="cat-grid">` + LANGUAGE_CATS.map(l =>
+      `<div class="cat-card" onclick="selectLang('${l}')">${l}<small>${countByLang(l)} 首</small></div>`
+    ).join("") + `</div>`;
+    return;
+  }
+
+  if (!navPath.type){
+    el.innerHTML = `<div class="crumb"><button onclick="goBackOneLevel()">← 上一頁</button><span>／ ${navPath.lang}</span></div>` +
+      `<div class="sub-grid">` + SINGER_TYPES.map(t =>
+        `<div class="sub-card" onclick="selectType('${t}')">${t}</div>`
+      ).join("") + `</div>`;
+    return;
+  }
+
+  const songs = allSongs.filter(s => s.language === navPath.lang && s.singerType === navPath.type);
+  el.innerHTML = `<div class="crumb"><button onclick="goBackOneLevel()">← 上一頁</button><span>／ ${navPath.lang} ／ ${navPath.type}</span></div>` +
+    songListHtml(songs);
+}
+
+function songListHtml(songs){
+  if (songs.length === 0) return `<div class="empty-note">沒有符合的歌曲</div>`;
+  return `<div class="song-list">` + songs.map(s =>
+    `<div class="song-row" onclick="addToQueue('${s.id}')">
+       <div><div class="t">${escapeHtml(s.title)}</div><div class="a">${escapeHtml(s.artist||"")}</div></div>
+       <div class="add">加入</div>
+     </div>`
+  ).join("") + `</div>`;
+}
+
+function renderQueueTab(el){
+  if (queueDocs.length === 0){
+    el.innerHTML = `<div class="empty-note">目前沒有排隊中的點歌</div>`;
+    return;
+  }
+  el.innerHTML = queueDocs.map((q,i) => `
+    <div class="queue-row">
+      <span>${i===0 ? '<span class="now-tag">播放中</span>' : `<span class="idx">${i}</span>`}${escapeHtml(q.title)}
+        <span style="color:var(--text-muted); font-size:12px;"> ${escapeHtml(q.artist||"")}</span></span>
+      ${i===0 ? "" : `<button class="remove-btn" onclick="removeFromQueue('${q.id}')">移除</button>`}
+    </div>
+  `).join("");
+}
+
+function countByLang(l){ return allSongs.filter(s => s.language === l).length; }
+function selectLang(l){ navPath = { lang:l, type:null }; renderTabContent(); }
+function selectType(t){ navPath.type = t; renderTabContent(); }
+function backToLang(){ navPath = { lang:null, type:null }; renderTabContent(); }
+function goBackOneLevel(){
+  if (navPath.type) navPath.type = null;
+  else if (navPath.lang) navPath.lang = null;
+  renderTabContent();
+}
+
+function addToQueue(songId){
+  const song = allSongs.find(s => s.id === songId);
+  if (!song) return;
+  db.collection("queue").add({
+    songId: song.id, title: song.title, artist: song.artist || "",
+    urlOriginal: song.urlOriginal || "", urlCover: song.urlCover || "",
+    playingSource: "original", order: Date.now(),
+    addedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    requestedBy: "電視牆現場點歌"
+  }).then(()=> showToast(`已加入點歌：${song.title}`));
+}
+
+function removeFromQueue(id){ db.collection("queue").doc(id).delete(); }
+
+/* ============ 播放器同步 ============ */
+function syncPlayer(){
+  if (queueDocs.length > 0){
+    const cur = queueDocs[0];
+    if (cur.id !== currentQueueId){
+      currentQueueId = cur.id; randomSong = null; isPaused = false;
+      loadIntoPlayer(cur.title, cur.artist, cur.playingSource === "cover" ? cur.urlCover : cur.urlOriginal, cur.playingSource === "cover" ? "伴唱" : "原唱", true);
+    } else {
+      const wantUrl = cur.playingSource === "cover" ? cur.urlCover : cur.urlOriginal;
+      if (wantUrl && wantUrl !== currentLoadedUrl){
+        loadIntoPlayer(cur.title, cur.artist, wantUrl, cur.playingSource === "cover" ? "伴唱" : "原唱", true);
+      }
+    }
+    document.getElementById("statusPill").classList.add("playing");
+    document.getElementById("statusText").textContent = "點播中";
+  } else {
+    currentQueueId = null;
+    document.getElementById("statusPill").classList.remove("playing");
+    document.getElementById("statusText").textContent = "隨機播放中…";
+    if (!randomSong && allSongs.length > 0) playRandomSong();
+  }
+}
+
+function playRandomSong(){
+  if (allSongs.length === 0) return;
+  isPaused = false;
+  randomSong = allSongs[Math.floor(Math.random() * allSongs.length)];
+  loadIntoPlayer(randomSong.title, randomSong.artist, randomSong.urlOriginal, "原唱", false);
+}
+
+function loadIntoPlayer(title, artist, url, sourceLabel, isQueued){
+  currentLoadedUrl = url;
+  document.getElementById("curTitle").textContent = title || "—";
+  document.getElementById("curArtist").textContent = artist || "—";
+  document.getElementById("curSource").textContent = sourceLabel;
+
+  const parsed = parseVideoUrl(url);
+  const frame = document.getElementById("playerFrame");
+  ytPlayer = null;
+
+  const pillHtml = `<div class="status-pill${queueDocs.length>0?' playing':''}" id="statusPill"><span class="dot"></span><span id="statusText">${queueDocs.length>0?'點播中':'隨機播放中…'}</span></div>`;
+  const nowInfoHtml = `<div class="now-info"><div class="title" id="curTitle">${escapeHtml(title||"—")}</div><div class="artist" id="curArtist">${escapeHtml(artist||"—")}</div><div class="source-tag" id="curSource">${sourceLabel}</div></div>`;
+
+  if (!parsed.ok){
+    frame.innerHTML = pillHtml + `<div class="empty-state"><div class="big">無法辨識此網址</div><div>請確認為 YouTube / Bilibili / Odysee 連結</div></div>` + nowInfoHtml;
+    return;
+  }
+
+  if (parsed.platform === "youtube"){
+    frame.innerHTML = pillHtml + `<div id="ytHost" style="position:absolute;inset:0;"></div>` + nowInfoHtml;
+    if (window.YT && window.YT.Player){
+      ytPlayer = new YT.Player("ytHost", {
+        width:"100%", height:"100%", videoId: parsed.videoId,
+        playerVars:{ autoplay:1, rel:0, playsinline:1 },
+        events:{ onStateChange: onYtStateChange }
+      });
+    } else {
+      frame.innerHTML = pillHtml + `<iframe src="${parsed.embedUrl}" allow="autoplay; encrypted-media" allowfullscreen></iframe>` + nowInfoHtml;
+    }
+  } else {
+    frame.innerHTML = pillHtml + `<iframe src="${parsed.embedUrl}" allow="autoplay; encrypted-media; fullscreen" allowfullscreen sandbox="allow-scripts allow-same-origin allow-presentation allow-forms"></iframe>` + nowInfoHtml;
+    if (!isQueued){
+      clearTimeout(window._idleFallbackTimer);
+      window._idleFallbackTimer = setTimeout(() => { if (!currentQueueId) playRandomSong(); }, 4.5 * 60 * 1000);
+    }
+  }
+}
+
+function onYouTubeIframeAPIReady(){
+  if (currentLoadedUrl){
+    const parsed = parseVideoUrl(currentLoadedUrl);
+    if (parsed.platform === "youtube" && !ytPlayer){
+      const title = document.getElementById("curTitle").textContent;
+      const artist = document.getElementById("curArtist").textContent;
+      const sourceLabel = document.getElementById("curSource").textContent;
+      loadIntoPlayer(title, artist, currentLoadedUrl, sourceLabel, !!currentQueueId);
+    }
+  }
+}
+
+function onYtStateChange(e){
+  if (e.data === YT.PlayerState.ENDED) handleVideoEnded();
+}
+
+function handleVideoEnded(){
+  if (currentQueueId) db.collection("queue").doc(currentQueueId).delete().catch(()=>{});
+  else playRandomSong();
+}
+
+/* ============ 頂部控制鍵 ============ */
+function togglePlayPause(){
+  if (ytPlayer && typeof ytPlayer.pauseVideo === "function"){
+    if (isPaused){ ytPlayer.playVideo(); isPaused = false; }
+    else { ytPlayer.pauseVideo(); isPaused = true; }
+  } else {
+    // Bilibili / Odysee 嵌入播放器未開放外部暫停/播放控制，僅能提示
+    showToast("此平台的嵌入播放器不支援站外暫停控制，請直接於畫面中操作");
+  }
+}
+
+function skipSongFromTV(){
+  if (currentQueueId) db.collection("queue").doc(currentQueueId).delete();
+  else playRandomSong();
+}
+
+function showToast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(()=> t.classList.remove("show"), 2400);
+}
+</script>
+</body>
+</html>
