@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>陽春白雪KTV｜後台管理</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Monoton&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#0A0E27; --bg-panel:#131832; --bg-panel-2:#1B2147;
+    --magenta:#FF2A6D; --cyan:#05D9E8; --gold:#FFD23F;
+    --text:#F2F2F7; --text-muted:#8A8FB8; --line: rgba(138,143,184,0.18);
+    --danger:#FF5C5C; --ok:#3DDC97;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh;
+    background: radial-gradient(120% 60% at 50% 0%, #171d40 0%, var(--bg-deep) 60%);
+    color:var(--text); font-family:"Noto Sans TC", sans-serif;
+  }
+  a{ color:var(--cyan); }
+  .logo{ font-family:"Monoton", cursive; font-size:20px; color:var(--cyan);
+    text-shadow:0 0 8px rgba(5,217,232,0.6); }
+
+  /* ---------- 登入畫面 ---------- */
+  #loginScreen{
+    min-height:100vh; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:18px;
+  }
+  .login-card{
+    background:var(--bg-panel); border:1px solid var(--line); border-radius:16px;
+    padding:32px 30px; width:320px; text-align:center;
+  }
+  .login-card input{
+    width:100%; margin-top:10px; padding:11px 12px; border-radius:10px; border:1px solid var(--line);
+    background:var(--bg-panel-2); color:var(--text); font-size:15px; font-family:inherit;
+  }
+  .login-card button{
+    width:100%; margin-top:16px; padding:12px; border-radius:10px; border:none;
+    background:var(--magenta); color:#fff; font-weight:900; font-size:15px; cursor:pointer;
+  }
+  #loginError{ color:var(--danger); font-size:13px; margin-top:10px; min-height:16px; }
+
+  /* ---------- 後台主體 ---------- */
+  #adminScreen{ display:none; padding:22px 26px 60px; max-width:1200px; margin:0 auto; }
+  header.top{
+    display:flex; align-items:center; justify-content:space-between; margin-bottom:22px;
+    flex-wrap:wrap; gap:10px;
+  }
+  .count-pill{
+    background:var(--bg-panel-2); border:1px solid var(--line); border-radius:999px;
+    padding:8px 18px; font-size:13px; color:var(--text-muted);
+  }
+  .count-pill b{ color:var(--gold); font-size:18px; }
+  .logout-btn{
+    background:none; border:1px solid var(--line); color:var(--text-muted);
+    padding:8px 14px; border-radius:8px; cursor:pointer; font-size:13px; font-family:inherit;
+  }
+
+  .grid2{ display:grid; grid-template-columns: 1fr 1fr; gap:20px; }
+  @media (max-width:900px){ .grid2{ grid-template-columns:1fr; } }
+
+  .panel{
+    background:var(--bg-panel); border:1px solid var(--line); border-radius:16px; padding:20px 22px; margin-bottom:20px;
+  }
+  .panel h2{ margin:0 0 14px; font-size:16px; letter-spacing:1px; }
+  .panel h2 small{ color:var(--text-muted); font-weight:400; font-size:12px; margin-left:8px;}
+
+  label{ display:block; font-size:12px; color:var(--text-muted); margin:12px 0 5px; }
+  input[type=text], input[type=url], select{
+    width:100%; padding:10px 12px; border-radius:9px; border:1px solid var(--line);
+    background:var(--bg-panel-2); color:var(--text); font-size:14px; font-family:inherit;
+  }
+  input:focus, select:focus{ outline:none; border-color:var(--cyan); }
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+
+  .btn{
+    border:none; border-radius:9px; padding:10px 16px; font-weight:900; font-size:13px; cursor:pointer; font-family:inherit;
+  }
+  .btn-primary{ background:var(--magenta); color:#fff; }
+  .btn-gold{ background:var(--gold); color:#141428; }
+  .btn-ghost{ background:var(--bg-panel-2); color:var(--text); border:1px solid var(--line); }
+  .btn-danger{ background:rgba(255,92,92,0.12); color:var(--danger); border:1px solid rgba(255,92,92,0.5); }
+  .btn:disabled{ opacity:0.4; cursor:not-allowed; }
+  .form-actions{ margin-top:16px; display:flex; gap:10px; }
+  .form-msg{ font-size:13px; margin-top:10px; min-height:16px; }
+  .form-msg.ok{ color:var(--ok); } .form-msg.err{ color:var(--danger); }
+
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  th{ text-align:left; color:var(--text-muted); font-weight:700; padding:8px 8px; border-bottom:1px solid var(--line); }
+  td{ padding:9px 8px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  tr:hover td{ background:rgba(255,255,255,0.02); }
+  .tag{ font-size:11px; padding:2px 8px; border-radius:6px; background:var(--bg-panel-2); border:1px solid var(--line); color:var(--text-muted); }
+  .row-actions{ display:flex; gap:6px; }
+  .row-actions button{ padding:5px 9px; font-size:12px; }
+
+  .search-bar{ margin-bottom:12px; }
+  .table-wrap{ max-height:420px; overflow-y:auto; }
+  .panel-wide{ max-width:1200px; }
+  .table-wrap-wide{ max-height:none; overflow-y:visible; }
+  .pagination{ display:flex; align-items:center; justify-content:center; gap:14px; margin-top:16px; }
+  .pagination button{
+    border:1px solid var(--line); background:var(--bg-panel-2); color:var(--text);
+    border-radius:8px; padding:7px 14px; cursor:pointer; font-family:inherit; font-size:13px; font-weight:700;
+  }
+  .pagination button:disabled{ opacity:0.35; cursor:not-allowed; }
+  .pagination .page-info{ font-size:13px; color:var(--text-muted); }
+
+  /* 播放控制 */
+  .now-playing-box{
+    background:var(--bg-panel-2); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:14px;
+  }
+  .now-playing-box .t{ font-size:17px; font-weight:900; }
+  .now-playing-box .a{ font-size:13px; color:var(--text-muted); margin-top:2px;}
+  .source-toggle{ display:flex; gap:8px; margin-top:12px; }
+  .source-toggle button{ flex:1; }
+  .source-toggle button.active{ background:var(--gold); color:#141428; }
+  .control-actions{ display:flex; gap:10px; margin-top:14px; }
+  .control-actions button{ flex:1; }
+
+  .queue-mgr-list{ margin-top:8px; }
+  .queue-mgr-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:9px 0; border-top:1px solid var(--line); font-size:13px;
+  }
+  .queue-mgr-row:first-child{ border-top:none; }
+  .queue-mgr-row .idx{ color:var(--cyan); font-weight:900; width:22px; flex-shrink:0; }
+
+  .insert-search-results{
+    margin-top:8px; max-height:180px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;
+  }
+  .insert-row{
+    display:flex; justify-content:space-between; align-items:center; gap:8px;
+    background:var(--bg-panel-2); border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-size:13px;
+  }
+  .empty-note{ color:var(--text-muted); font-size:13px; padding:8px 0; }
+</style>
+</head>
+<body>
+
+<!-- 登入畫面 -->
+<div id="loginScreen">
+  <span class="logo">陽春白雪KTV 後台</span>
+  <div class="login-card">
+    <div style="font-weight:900; font-size:16px; margin-bottom:4px;">管理員登入</div>
+    <div style="font-size:12px; color:var(--text-muted);">帳號需事先於 Firebase Authentication 建立</div>
+    <input type="text" id="loginEmail" placeholder="Email" />
+    <input type="text" id="loginPass" placeholder="密碼" style="-webkit-text-security:disc;" />
+    <button onclick="doLogin()">登入</button>
+    <div id="loginError"></div>
+  </div>
+</div>
+
+<!-- 後台主體 -->
+<div id="adminScreen">
+  <header class="top">
+    <span class="logo">陽春白雪KTV 後台</span>
+    <div style="display:flex; align-items:center; gap:12px;">
+      <div class="count-pill">歌曲庫總數：<b id="totalCount">0</b> 首</div>
+      <button class="logout-btn" onclick="window.open('index.html', '_blank')">🖥 前端</button>
+      <button class="logout-btn" onclick="auth.signOut()">登出</button>
+    </div>
+  </header>
+
+  <div class="grid2">
+    <!-- 左欄：新增歌曲 -->
+    <div>
+      <div class="panel">
+        <h2>新增歌曲</h2>
+        <label>歌名</label>
+        <input type="text" id="fTitle" placeholder="例如：小幸運" />
+        <label>歌手</label>
+        <input type="text" id="fArtist" placeholder="例如：田馥甄" />
+        <label>原唱版網址（YouTube / Bilibili / Odysee）</label>
+        <input type="url" id="fUrlOriginal" placeholder="https://..." />
+        <label>伴唱版網址（選填，無伴唱版可留空）</label>
+        <input type="url" id="fUrlCover" placeholder="https://..." />
+        <div class="row2">
+          <div>
+            <label>語言分類</label>
+            <select id="fLanguage"></select>
+          </div>
+          <div>
+            <label>演唱類型</label>
+            <select id="fSingerType"></select>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="submitSong()">新增到歌曲庫</button>
+          <button class="btn btn-ghost" id="cancelEditBtn" style="display:none;" onclick="cancelEdit()">取消編輯</button>
+        </div>
+        <div class="form-msg" id="formMsg"></div>
+      </div>
+    </div>
+
+    <!-- 右欄：播放控制 -->
+    <div>
+      <div class="panel">
+        <h2>播放控制</h2>
+        <div class="now-playing-box">
+          <div style="font-size:11px; color:var(--text-muted); letter-spacing:1px;">目前播放</div>
+          <div class="t" id="npTitle">目前無人點播（電視牆播放隨機歌曲）</div>
+          <div class="a" id="npArtist"></div>
+          <div class="source-toggle">
+            <button class="btn btn-ghost" id="srcOriginalBtn" onclick="setSource('original')">原唱</button>
+            <button class="btn btn-ghost" id="srcCoverBtn" onclick="setSource('cover')">伴唱</button>
+          </div>
+          <div class="control-actions">
+            <button class="btn btn-danger" onclick="skipSong()">切歌</button>
+          </div>
+        </div>
+
+        <label>插歌（搜尋歌曲，加入後將排在下一首播放）</label>
+        <input type="text" id="insertSearch" placeholder="搜尋歌名／歌手…" oninput="renderInsertResults()" />
+        <div class="insert-search-results" id="insertResults"></div>
+      </div>
+
+      <div class="panel">
+        <h2>目前排隊清單</h2>
+        <div class="queue-mgr-list" id="queueMgrList"><div class="empty-note">目前沒有排隊中的點歌</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 歌曲庫管理：獨立全寬區塊，橫跨左右兩欄 -->
+  <div class="panel panel-wide">
+    <h2>歌曲庫管理 <small id="listCountLabel"></small></h2>
+    <div class="search-bar">
+      <input type="text" id="librarySearch" placeholder="搜尋歌名／歌手…" oninput="onLibrarySearch()" />
+    </div>
+    <div class="table-wrap table-wrap-wide">
+      <table>
+        <thead><tr><th>歌名</th><th>歌手</th><th>語言</th><th>類型</th><th>版本</th><th></th></tr></thead>
+        <tbody id="libraryTbody"></tbody>
+      </table>
+    </div>
+    <div class="pagination" id="pagination"></div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="ktv-utils.js"></script>
+<script>
+/* ============ 登入 ============ */
+function doLogin(){
+  const email = document.getElementById("loginEmail").value.trim();
+  const pass = document.getElementById("loginPass").value;
+  document.getElementById("loginError").textContent = "";
+  auth.signInWithEmailAndPassword(email, pass).catch(err => {
+    document.getElementById("loginError").textContent = `登入失敗（${err.code}）：${err.message}`;
+    console.error("Firebase 登入錯誤：", err);
+  });
+}
+auth.onAuthStateChanged(user => {
+  document.getElementById("loginScreen").style.display = user ? "none" : "flex";
+  document.getElementById("adminScreen").style.display = user ? "block" : "none";
+});
+
+/* ============ 下拉選單初始化 ============ */
+function fillSelect(id, options){
+  const el = document.getElementById(id);
+  el.innerHTML = options.map(o => `<option value="${o}">${o}</option>`).join("");
+}
+fillSelect("fLanguage", LANGUAGE_CATS);
+fillSelect("fSingerType", SINGER_TYPES);
+
+/* ============ 歌曲庫 ============ */
+let allSongs = [];
+let editingId = null;
+let libraryPage = 1;
+const LIBRARY_PAGE_SIZE = 20;
+
+db.collection("songs").orderBy("title").onSnapshot(snap => {
+  allSongs = [];
+  snap.forEach(doc => allSongs.push({ id: doc.id, ...doc.data() }));
+  document.getElementById("totalCount").textContent = allSongs.length;
+  document.getElementById("listCountLabel").textContent = `（共 ${allSongs.length} 首）`;
+  renderLibraryTable();
+  renderInsertResults();
+});
+
+function onLibrarySearch(){
+  libraryPage = 1; // 搜尋時重置回第一頁
+  renderLibraryTable();
+}
+
+function renderLibraryTable(){
+  const term = document.getElementById("librarySearch").value.trim();
+  const rows = allSongs.filter(s => !term || (s.title||"").includes(term) || (s.artist||"").includes(term));
+  const tbody = document.getElementById("libraryTbody");
+
+  const totalPages = Math.max(1, Math.ceil(rows.length / LIBRARY_PAGE_SIZE));
+  if (libraryPage > totalPages) libraryPage = totalPages;
+  if (libraryPage < 1) libraryPage = 1;
+
+  if (rows.length === 0){
+    tbody.innerHTML = `<tr><td colspan="6" style="color:var(--text-muted);">沒有符合的歌曲</td></tr>`;
+    document.getElementById("pagination").innerHTML = "";
+    return;
+  }
+
+  const start = (libraryPage - 1) * LIBRARY_PAGE_SIZE;
+  const pageRows = rows.slice(start, start + LIBRARY_PAGE_SIZE);
+
+  tbody.innerHTML = pageRows.map(s => `
+    <tr>
+      <td>${escapeHtml(s.title)}</td>
+      <td>${escapeHtml(s.artist||"")}</td>
+      <td><span class="tag">${s.language||"—"}</span></td>
+      <td><span class="tag">${s.singerType||"—"}</span></td>
+      <td><span class="tag">${s.urlCover ? "原唱＋伴唱" : "僅原唱"}</span></td>
+      <td class="row-actions">
+        <button class="btn btn-ghost" onclick="editSong('${s.id}')">編輯</button>
+        <button class="btn btn-danger" onclick="deleteSong('${s.id}')">刪除</button>
+      </td>
+    </tr>
+  `).join("");
+
+  document.getElementById("pagination").innerHTML = `
+    <button onclick="changeLibraryPage(-1)" ${libraryPage<=1?"disabled":""}>← 上一頁</button>
+    <span class="page-info">第 ${libraryPage} / ${totalPages} 頁（共 ${rows.length} 首）</span>
+    <button onclick="changeLibraryPage(1)" ${libraryPage>=totalPages?"disabled":""}>下一頁 →</button>
+  `;
+}
+
+function changeLibraryPage(delta){
+  libraryPage += delta;
+  renderLibraryTable();
+}
+
+function submitSong(){
+  const title = document.getElementById("fTitle").value.trim();
+  const artist = document.getElementById("fArtist").value.trim();
+  const urlOriginal = document.getElementById("fUrlOriginal").value.trim();
+  const urlCover = document.getElementById("fUrlCover").value.trim();
+  const language = document.getElementById("fLanguage").value;
+  const singerType = document.getElementById("fSingerType").value;
+  const msg = document.getElementById("formMsg");
+
+  if (!title || !urlOriginal){
+    msg.className = "form-msg err"; msg.textContent = "請至少填寫歌名與原唱版網址";
+    return;
+  }
+  const parsedOriginal = parseVideoUrl(urlOriginal);
+  if (!parsedOriginal.ok){
+    msg.className = "form-msg err"; msg.textContent = "原唱版網址無法辨識，請確認為 YouTube / Bilibili / Odysee 連結";
+    return;
+  }
+  if (urlCover){
+    const parsedCover = parseVideoUrl(urlCover);
+    if (!parsedCover.ok){
+      msg.className = "form-msg err"; msg.textContent = "伴唱版網址無法辨識，請確認為 YouTube / Bilibili / Odysee 連結";
+      return;
+    }
+  }
+
+  const data = { title, artist, urlOriginal, urlCover, language, singerType, platform: parsedOriginal.platform };
+
+  const task = editingId
+    ? db.collection("songs").doc(editingId).update(data)
+    : db.collection("songs").add({ ...data, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+
+  task.then(() => {
+    msg.className = "form-msg ok";
+    msg.textContent = editingId ? "已更新歌曲" : "已新增到歌曲庫";
+    resetForm();
+  }).catch(err => {
+    msg.className = "form-msg err";
+    msg.textContent = "發生錯誤：" + err.message;
+  });
+}
+
+function editSong(id){
+  const s = allSongs.find(x => x.id === id);
+  if (!s) return;
+  editingId = id;
+  document.getElementById("fTitle").value = s.title || "";
+  document.getElementById("fArtist").value = s.artist || "";
+  document.getElementById("fUrlOriginal").value = s.urlOriginal || "";
+  document.getElementById("fUrlCover").value = s.urlCover || "";
+  document.getElementById("fLanguage").value = s.language || LANGUAGE_CATS[0];
+  document.getElementById("fSingerType").value = s.singerType || SINGER_TYPES[0];
+  document.getElementById("cancelEditBtn").style.display = "inline-block";
+  window.scrollTo({ top:0, behavior:"smooth" });
+}
+
+function cancelEdit(){ resetForm(); }
+
+function resetForm(){
+  editingId = null;
+  document.getElementById("fTitle").value = "";
+  document.getElementById("fArtist").value = "";
+  document.getElementById("fUrlOriginal").value = "";
+  document.getElementById("fUrlCover").value = "";
+  document.getElementById("fLanguage").value = LANGUAGE_CATS[0];
+  document.getElementById("fSingerType").value = SINGER_TYPES[0];
+  document.getElementById("cancelEditBtn").style.display = "none";
+}
+
+function deleteSong(id){
+  if (!confirm("確定要刪除這首歌嗎？")) return;
+  db.collection("songs").doc(id).delete();
+}
+
+/* ============ 播放控制 ============ */
+let queueDocs = [];
+
+db.collection("queue").orderBy("order","asc").onSnapshot(snap => {
+  queueDocs = [];
+  snap.forEach(doc => queueDocs.push({ id: doc.id, ...doc.data() }));
+  renderNowPlaying();
+  renderQueueMgr();
+});
+
+function renderNowPlaying(){
+  const box = document.getElementById("npTitle");
+  const artistEl = document.getElementById("npArtist");
+  if (queueDocs.length === 0){
+    box.textContent = "目前無人點播（電視牆播放隨機歌曲）";
+    artistEl.textContent = "";
+    document.getElementById("srcOriginalBtn").classList.remove("active");
+    document.getElementById("srcCoverBtn").classList.remove("active");
+    document.getElementById("srcCoverBtn").disabled = true;
+    return;
+  }
+  const cur = queueDocs[0];
+  box.textContent = cur.title;
+  artistEl.textContent = cur.artist || "";
+  const isCover = cur.playingSource === "cover";
+  document.getElementById("srcOriginalBtn").classList.toggle("active", !isCover);
+  document.getElementById("srcCoverBtn").classList.toggle("active", isCover);
+  document.getElementById("srcCoverBtn").disabled = !cur.urlCover;
+}
+
+function setSource(source){
+  if (queueDocs.length === 0) return;
+  if (source === "cover" && !queueDocs[0].urlCover){
+    alert("這首歌沒有上傳伴唱版網址");
+    return;
+  }
+  db.collection("queue").doc(queueDocs[0].id).update({ playingSource: source });
+}
+
+function skipSong(){
+  if (queueDocs.length === 0) return;
+  db.collection("queue").doc(queueDocs[0].id).delete();
+}
+
+function renderQueueMgr(){
+  const el = document.getElementById("queueMgrList");
+  if (queueDocs.length === 0){
+    el.innerHTML = `<div class="empty-note">目前沒有排隊中的點歌</div>`;
+    return;
+  }
+  el.innerHTML = queueDocs.map((q,i) => `
+    <div class="queue-mgr-row">
+      <span class="idx">${i===0 ? "▶" : i}</span>
+      <span style="flex:1;">${escapeHtml(q.title)}<span style="color:var(--text-muted);"> — ${escapeHtml(q.artist||"")}</span></span>
+      ${i===0 ? '<span class="tag">播放中</span>' : `<button class="btn btn-danger" onclick="removeFromQueue('${q.id}')">移除</button>`}
+    </div>
+  `).join("");
+}
+
+function removeFromQueue(id){
+  db.collection("queue").doc(id).delete();
+}
+
+/* ---- 插歌：加入後排在「下一首」（即目前播放之後） ---- */
+function renderInsertResults(){
+  const term = document.getElementById("insertSearch").value.trim();
+  const el = document.getElementById("insertResults");
+  if (!term){ el.innerHTML = ""; return; }
+  const results = allSongs.filter(s => (s.title||"").includes(term) || (s.artist||"").includes(term)).slice(0, 8);
+  if (results.length === 0){
+    el.innerHTML = `<div class="empty-note">沒有符合的歌曲</div>`;
+    return;
+  }
+  el.innerHTML = results.map(s => `
+    <div class="insert-row">
+      <span>${escapeHtml(s.title)}　<span style="color:var(--text-muted);">${escapeHtml(s.artist||"")}</span></span>
+      <button class="btn btn-gold" onclick="insertNext('${s.id}')">插歌</button>
+    </div>
+  `).join("");
+}
+
+function insertNext(songId){
+  const song = allSongs.find(s => s.id === songId);
+  if (!song) return;
+
+  let newOrder;
+  if (queueDocs.length === 0){
+    newOrder = Date.now();
+  } else if (queueDocs.length === 1){
+    newOrder = queueDocs[0].order + 1; // 排在目前播放之後
+  } else {
+    // 插在「目前播放中」與「原本下一首」之間
+    newOrder = (queueDocs[0].order + queueDocs[1].order) / 2;
+  }
+
+  db.collection("queue").add({
+    songId: song.id,
+    title: song.title,
+    artist: song.artist || "",
+    urlOriginal: song.urlOriginal || "",
+    urlCover: song.urlCover || "",
+    playingSource: "original",
+    order: newOrder,
+    addedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    requestedBy: "後台插歌"
+  }).then(() => {
+    document.getElementById("insertSearch").value = "";
+    renderInsertResults();
+  });
+}
+</script>
+</body>
+</html>
