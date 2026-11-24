@@ -9,7 +9,7 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // ---------- 分類常數 ----------
-const LANGUAGE_CATS = ["華語", "方言", "韓語", "西洋", "日語"];
+const LANGUAGE_CATS = ["華語", "方言", "韓語", "日語", "西洋", "其他"];
 const SINGER_TYPES = ["男歌手", "女歌手", "合唱", "團體"];
 
 // ---------- 影片網址辨識 ----------
@@ -75,4 +75,65 @@ function escapeHtml(str) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+
+// ---------- Firestore 錯誤訊息（讓「權限不足」這類問題能直接看到，而不是默默沒反應） ----------
+function describeFirestoreError(err){
+  if (!err) return "未知錯誤";
+  if (err.code === "permission-denied") return "權限不足（請到 Firebase 更新並發布 Firestore 規則）";
+  return err.code || err.message || "未知錯誤";
+}
+
+// ---------- 點播佇列：避免重複加入同一首歌 ----------
+function isSongInQueue(song, queueList){
+  return (queueList || []).some(q => q.songId === song.id);
+}
+
+/**
+ * 以交易（transaction）方式加入佇列：文件 ID 固定為 "s_" + 歌曲ID，
+ * 所以就算兩支手機在同一瞬間點同一首歌，也只會有一個成功。
+ * 回傳 { ok:true } / { ok:false, duplicate:true } / { ok:false, error }
+ */
+async function addSongToQueueUnique(song, requestedBy, orderValue){
+  const ref = db.collection("queue").doc("s_" + song.id);
+  try{
+    await db.runTransaction(async tx => {
+      const snap = await tx.get(ref);
+      if (snap.exists) throw new Error("DUPLICATE");
+      tx.set(ref, {
+        songId: song.id,
+        title: song.title,
+        artist: song.artist || "",
+        urlOriginal: song.urlOriginal || "",
+        urlCover: song.urlCover || "",
+        playingSource: "original",
+        order: orderValue,
+        addedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        requestedBy: requestedBy
+      });
+    });
+    return { ok: true };
+  }catch(e){
+    if (e && e.message === "DUPLICATE") return { ok:false, duplicate:true };
+    return { ok:false, error:e };
+  }
+}
+
+// ---------- 歌手名稱排序：依筆劃少到多（逐字比較），非中文字（英文等）排在中文後面並依字母排序 ----------
+function compareNamesByStrokes(a, b){
+  a = (a || ""); b = (b || "");
+  const strokes = (typeof getStrokeCount === "function") ? getStrokeCount : () => 999;
+  const n = Math.min(a.length, b.length);
+  for (let i = 0; i < n; i++){
+    const ca = a.charAt(i), cb = b.charAt(i);
+    const sa = strokes(ca), sb = strokes(cb);
+    if (sa !== sb) return sa - sb;
+    if (sa === 999){
+      const la = ca.toLowerCase(), lb = cb.toLowerCase();
+      if (la !== lb) return la < lb ? -1 : 1;
+    }
+  }
+  if (a.length !== b.length) return a.length - b.length;
+  return a.localeCompare(b, "zh-Hant");
 }

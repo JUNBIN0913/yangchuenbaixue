@@ -180,6 +180,8 @@
         <input type="url" id="fUrlOriginal" placeholder="https://..." />
         <label>伴唱版網址（選填，無伴唱版可留空）</label>
         <input type="url" id="fUrlCover" placeholder="https://..." />
+        <label>歌曲長度（選填，建議 Bilibili／Odysee 歌曲填寫，電視牆才能在歌曲播完後自動接下一首；例如 3:45 或 225）</label>
+        <input type="text" id="fDuration" placeholder="例如 3:45" />
         <div class="row2">
           <div>
             <label>語言分類</label>
@@ -344,6 +346,23 @@ function changeLibraryPage(delta){
   renderLibraryTable();
 }
 
+// 歌曲長度輸入：空白→0（不使用）；"225"→225 秒；"3:45"→225 秒；"1:02:03"→3723 秒；格式錯誤→NaN
+function parseDurationInput(str){
+  str = (str || "").trim();
+  if (!str) return 0;
+  if (/^\d+$/.test(str)) return parseInt(str, 10);
+  const m = str.match(/^(\d+):([0-5]?\d)(?::([0-5]?\d))?$/);
+  if (!m) return NaN;
+  return m[3] !== undefined
+    ? parseInt(m[1],10)*3600 + parseInt(m[2],10)*60 + parseInt(m[3],10)
+    : parseInt(m[1],10)*60 + parseInt(m[2],10);
+}
+function formatDuration(sec){
+  if (!sec) return "";
+  const m = Math.floor(sec/60), r = sec%60;
+  return m + ":" + String(r).padStart(2,"0");
+}
+
 function submitSong(){
   const title = document.getElementById("fTitle").value.trim();
   const artist = document.getElementById("fArtist").value.trim();
@@ -371,7 +390,13 @@ function submitSong(){
     }
   }
 
-  const data = { title, artist, urlOriginal, urlCover, language, singerType, isNewSong, platform: parsedOriginal.platform };
+  const durationSec = parseDurationInput(document.getElementById("fDuration").value);
+  if (Number.isNaN(durationSec)){
+    msg.className = "form-msg err"; msg.textContent = "歌曲長度格式不正確，請填 3:45 或秒數（例如 225），沒有要填可留空";
+    return;
+  }
+
+  const data = { title, artist, urlOriginal, urlCover, language, singerType, isNewSong, durationSec, platform: parsedOriginal.platform };
 
   const task = editingId
     ? db.collection("songs").doc(editingId).update(data)
@@ -395,6 +420,7 @@ function editSong(id){
   document.getElementById("fArtist").value = s.artist || "";
   document.getElementById("fUrlOriginal").value = s.urlOriginal || "";
   document.getElementById("fUrlCover").value = s.urlCover || "";
+  document.getElementById("fDuration").value = formatDuration(s.durationSec);
   document.getElementById("fLanguage").value = s.language || LANGUAGE_CATS[0];
   document.getElementById("fSingerType").value = s.singerType || SINGER_TYPES[0];
   document.getElementById("fIsNew").checked = !!s.isNewSong;
@@ -410,6 +436,7 @@ function resetForm(){
   document.getElementById("fArtist").value = "";
   document.getElementById("fUrlOriginal").value = "";
   document.getElementById("fUrlCover").value = "";
+  document.getElementById("fDuration").value = "";
   document.getElementById("fLanguage").value = LANGUAGE_CATS[0];
   document.getElementById("fSingerType").value = SINGER_TYPES[0];
   document.getElementById("fIsNew").checked = false;
@@ -517,17 +544,19 @@ function insertNext(songId){
     newOrder = (queueDocs[0].order + queueDocs[1].order) / 2;
   }
 
-  db.collection("queue").add({
-    songId: song.id,
-    title: song.title,
-    artist: song.artist || "",
-    urlOriginal: song.urlOriginal || "",
-    urlCover: song.urlCover || "",
-    playingSource: "original",
-    order: newOrder,
-    addedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    requestedBy: "後台插歌"
-  }).then(() => {
+  if (isSongInQueue(song, queueDocs)){
+    alert(`「${song.title}」已經在點播清單中，不能重複加入。`);
+    return;
+  }
+  addSongToQueueUnique(song, "後台插歌", newOrder).then(res => {
+    if (res.duplicate){
+      alert(`「${song.title}」已經在點播清單中，不能重複加入。`);
+      return;
+    }
+    if (!res.ok){
+      alert("插歌失敗：" + describeFirestoreError(res.error));
+      return;
+    }
     document.getElementById("insertSearch").value = "";
     renderInsertResults();
   });

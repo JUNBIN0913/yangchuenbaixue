@@ -58,7 +58,7 @@
   /* ---------- 主體 ---------- */
   .layout{
     display:grid; grid-template-columns: 62% 38%;
-    height:calc(100vh - 96px); width:100vw;
+    height:calc(100vh - 104px); width:100vw;
     transition: grid-template-columns .5s ease;
   }
   .layout.fullscreen-mode{ grid-template-columns: 100% 0%; }
@@ -67,14 +67,14 @@
   .marquee-bar{
     overflow:hidden; white-space:nowrap;
     background:rgba(245,166,35,0.12); border-bottom:1px solid rgba(245,166,35,0.4);
-    padding:8px 0; height:36px; box-sizing:border-box;
+    padding:8px 0; height:44px; box-sizing:border-box;
   }
   .marquee-track{
     display:inline-flex; animation: marquee-scroll 24s linear infinite;
   }
   .marquee-text{
     display:inline-block; padding-right:60px;
-    color:#B9740A; font-weight:700; font-size:13px;
+    color:#B9740A; font-weight:700; font-size:20px; line-height:28px;
   }
   @keyframes marquee-scroll{
     0%{ transform:translateX(0); }
@@ -157,6 +157,7 @@
   }
   .cat-card:hover{ transform:translateY(-2px); border-color:var(--blue); }
   .cat-card.cat-new{
+    grid-column:1 / -1;
     background:linear-gradient(150deg, #FFF7E6, #fff);
     border-color:#F5A623; color:#B9740A;
   }
@@ -217,6 +218,19 @@
 
   ::-webkit-scrollbar{ width:6px; }
   ::-webkit-scrollbar-thumb{ background:var(--border); border-radius:6px; }
+  /* ---------- 手機／平板（窄螢幕）：影片在上、點歌面板在下，整頁可捲動 ---------- */
+  @media (max-width: 820px){
+    html, body{ height:auto; min-height:100%; overflow-y:auto; }
+    header{ height:auto; flex-wrap:wrap; gap:8px; padding:10px 12px; }
+    .top-actions{ flex-wrap:wrap; gap:6px; }
+    .top-btn{ padding:8px 10px; font-size:12px; }
+    .marquee-text{ font-size:16px; }
+    .layout{ display:block; height:auto; width:100%; }
+    .left{ width:100%; aspect-ratio:16 / 9; }
+    .right{ height:auto; border-left:none; border-top:1px solid var(--border); }
+    .tab-content{ overflow:visible; }
+    .layout.fullscreen-mode .right{ opacity:1; pointer-events:auto; }
+  }
 </style>
 </head>
 <body>
@@ -300,7 +314,8 @@ let ytPlayer = null;
 let currentLoadedUrl = null;
 let isPaused = false;
 let activeTab = "library";
-let navPath = { lang:null, type:null };
+let navPath = { lang:null, type:null, artist:null };
+let artistList = [];
 let searchTerm = "";
 let idleTimer = null;
 let isFullscreenMode = false;
@@ -314,6 +329,7 @@ function resetIdleTimer(){
   idleTimer = setTimeout(enterFullscreenPlayer, 60000);
 }
 function enterFullscreenPlayer(){
+  if (window.matchMedia("(max-width: 820px)").matches) return; // 手機直式版面不做閒置放大
   isFullscreenMode = true;
   document.body.classList.add("fullscreen-mode");
   document.getElementById("layoutRoot").classList.add("fullscreen-mode");
@@ -360,22 +376,19 @@ try{
     syncPlayer();
   }, err => console.warn("queue 讀取失敗，請確認 firebase-config.js：", err));
 
-  /* 遙控指令監聽：手機掃碼點歌頁的「遙控」分頁會把指令寫進 remoteControl/cmd 這份文件，
-     這裡監聽並執行。用 remoteControlBaselineTs 記錄「目前已經處理過的時間點」，
-     避免電視牆重新整理時，把之前舊的指令重新執行一次。 */
-  let remoteControlBaselineTs = null;
+  /* 遙控指令監聽：手機掃碼點歌頁的「遙控」分頁會把指令寫進 remoteControl/cmd 這份文件，這裡監聽並執行。
+     用 lastRemoteTs 避免同一道指令重複執行；超過 20 秒的舊指令（例如電視牆剛重新整理時讀到的）不執行。
+     （舊版把「第一次收到的資料」一律當基準點略過，結果第一次遙控一定沒反應，這裡已修正） */
+  let lastRemoteTs = 0;
   db.collection("remoteControl").doc("cmd").onSnapshot(doc => {
     if (!doc.exists) return;
     const data = doc.data();
     if (!data.ts) return; // serverTimestamp 尚未從伺服器確認前會是 null，先略過
-    if (remoteControlBaselineTs === null){
-      remoteControlBaselineTs = data.ts; // 第一次收到只記錄基準點，不執行（避免重放舊指令）
-      return;
-    }
-    if (data.ts.toMillis() > remoteControlBaselineTs.toMillis()){
-      remoteControlBaselineTs = data.ts;
-      handleRemoteCommand(data.action);
-    }
+    const tsMs = data.ts.toMillis();
+    if (tsMs <= lastRemoteTs) return;
+    lastRemoteTs = tsMs;
+    if (Date.now() - tsMs > 20000) return;
+    handleRemoteCommand(data.action);
   }, err => console.warn("remoteControl 讀取失敗，請確認 firebase-config.js：", err));
 }catch(e){
   console.warn("Firebase 尚未正確設定，目前僅顯示畫面架構：", e);
@@ -437,8 +450,29 @@ function renderLibraryTab(el){
     return;
   }
 
-  const songs = allSongs.filter(s => s.language === navPath.lang && s.singerType === navPath.type);
-  el.innerHTML = `<div class="crumb"><button onclick="goBackOneLevel()">← 上一頁</button><span>／ ${navPath.lang} ／ ${navPath.type}</span></div>` +
+  const typeSongs = allSongs.filter(s => s.language === navPath.lang && s.singerType === navPath.type);
+
+  if (navPath.artist === null){
+    // 歌手名字區塊：依筆劃少到多排序（未填歌手的排最後）
+    const names = [...new Set(typeSongs.map(s => (s.artist || "").trim()))].sort((a, b) => {
+      if (!a) return 1;
+      if (!b) return -1;
+      return compareNamesByStrokes(a, b);
+    });
+    artistList = names;
+    const crumb = `<div class="crumb"><button onclick="goBackOneLevel()">← 上一頁</button><span>／ ${navPath.lang} ／ ${navPath.type}</span></div>`;
+    if (names.length === 0){
+      el.innerHTML = crumb + `<div class="empty-note">此分類目前沒有歌曲</div>`;
+      return;
+    }
+    el.innerHTML = crumb + `<div class="sub-grid">` + names.map((n, i) =>
+      `<div class="sub-card" onclick="selectArtist(${i})">${n ? escapeHtml(n) : "（未填歌手）"}</div>`
+    ).join("") + `</div>`;
+    return;
+  }
+
+  const songs = typeSongs.filter(s => (s.artist || "").trim() === navPath.artist);
+  el.innerHTML = `<div class="crumb"><button onclick="goBackOneLevel()">← 上一頁</button><span>／ ${navPath.lang} ／ ${navPath.type} ／ ${navPath.artist ? escapeHtml(navPath.artist) : "（未填歌手）"}</span></div>` +
     songListHtml(songs);
 }
 
@@ -468,29 +502,41 @@ function renderQueueTab(el){
 }
 
 function countByLang(l){ return allSongs.filter(s => s.language === l).length; }
-function selectLang(l){ navPath = { lang:l, type:null }; renderTabContent(); }
-function selectNewSongs(){ navPath = { lang:"__NEW__", type:null }; renderTabContent(); }
-function selectType(t){ navPath.type = t; renderTabContent(); }
-function backToLang(){ navPath = { lang:null, type:null }; renderTabContent(); }
+function selectLang(l){ navPath = { lang:l, type:null, artist:null }; renderTabContent(); }
+function selectNewSongs(){ navPath = { lang:"__NEW__", type:null, artist:null }; renderTabContent(); }
+function selectType(t){ navPath.type = t; navPath.artist = null; renderTabContent(); }
+function selectArtist(i){ navPath.artist = artistList[i]; renderTabContent(); }
+function backToLang(){ navPath = { lang:null, type:null, artist:null }; renderTabContent(); }
 function goBackOneLevel(){
-  if (navPath.type) navPath.type = null;
+  if (navPath.artist !== null) navPath.artist = null;
+  else if (navPath.type) navPath.type = null;
   else if (navPath.lang) navPath.lang = null;
   renderTabContent();
 }
 
-function addToQueue(songId){
+async function addToQueue(songId){
   const song = allSongs.find(s => s.id === songId);
   if (!song) return;
-  db.collection("queue").add({
-    songId: song.id, title: song.title, artist: song.artist || "",
-    urlOriginal: song.urlOriginal || "", urlCover: song.urlCover || "",
-    playingSource: "original", order: Date.now(),
-    addedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    requestedBy: "電視牆現場點歌"
-  }).then(()=> showToast(`已加入點歌：${song.title}`));
+  if (isSongInQueue(song, queueDocs)){
+    alert(`「${song.title}」已經在點播清單中，不能重複加入。`);
+    return;
+  }
+  const res = await addSongToQueueUnique(song, "電視牆現場點歌", Date.now());
+  if (res.duplicate){
+    alert(`「${song.title}」已經在點播清單中，不能重複加入。`);
+    return;
+  }
+  if (!res.ok){
+    showToast("加入失敗：" + describeFirestoreError(res.error));
+    return;
+  }
+  showToast(`已加入點歌：${song.title}`);
 }
 
-function removeFromQueue(id){ db.collection("queue").doc(id).delete(); }
+function removeFromQueue(id){
+  db.collection("queue").doc(id).delete()
+    .catch(err => showToast("移除失敗：" + describeFirestoreError(err)));
+}
 
 /* ============ 播放器同步 ============ */
 function syncPlayer(){
@@ -498,11 +544,11 @@ function syncPlayer(){
     const cur = queueDocs[0];
     if (cur.id !== currentQueueId){
       currentQueueId = cur.id; randomSong = null; isPaused = false;
-      loadIntoPlayer(cur.title, cur.artist, cur.playingSource === "cover" ? cur.urlCover : cur.urlOriginal, cur.playingSource === "cover" ? "伴唱" : "原唱", true);
+      loadIntoPlayer(cur.title, cur.artist, cur.playingSource === "cover" ? cur.urlCover : cur.urlOriginal, cur.playingSource === "cover" ? "伴唱" : "原唱", true, durationOf(cur));
     } else {
       const wantUrl = cur.playingSource === "cover" ? cur.urlCover : cur.urlOriginal;
       if (wantUrl && wantUrl !== currentLoadedUrl){
-        loadIntoPlayer(cur.title, cur.artist, wantUrl, cur.playingSource === "cover" ? "伴唱" : "原唱", true);
+        loadIntoPlayer(cur.title, cur.artist, wantUrl, cur.playingSource === "cover" ? "伴唱" : "原唱", true, durationOf(cur));
       }
     }
     document.getElementById("statusPill").classList.add("playing");
@@ -519,10 +565,20 @@ function playRandomSong(){
   if (allSongs.length === 0) return;
   isPaused = false;
   randomSong = allSongs[Math.floor(Math.random() * allSongs.length)];
-  loadIntoPlayer(randomSong.title, randomSong.artist, randomSong.urlOriginal, "原唱", false);
+  loadIntoPlayer(randomSong.title, randomSong.artist, randomSong.urlOriginal, "原唱", false, randomSong.durationSec || 0);
 }
 
-function loadIntoPlayer(title, artist, url, sourceLabel, isQueued){
+// 取得這首歌的長度（秒）：優先用佇列資料，沒有就回歌曲庫查（後台「歌曲長度」欄位，選填）
+function durationOf(entry){
+  if (entry && entry.durationSec) return entry.durationSec;
+  const song = allSongs.find(x => x.id === (entry && entry.songId));
+  return (song && song.durationSec) || 0;
+}
+
+function loadIntoPlayer(title, artist, url, sourceLabel, isQueued, durationSec){
+  durationSec = durationSec || 0;
+  clearTimeout(window._endTimer);
+  clearTimeout(window._idleFallbackTimer);
   currentLoadedUrl = url;
   document.getElementById("curTitle").textContent = title || "—";
   document.getElementById("curArtist").textContent = artist || "—";
@@ -557,8 +613,16 @@ function loadIntoPlayer(title, artist, url, sourceLabel, isQueued){
     frame.innerHTML = pillHtml + `<iframe id="embFrame" src="${parsed.embedUrl}" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>` + nowInfoHtml;
     lastEmbedUrl = parsed.embedUrl;
     lastEmbedPlatform = parsed.platform;
-    if (!isQueued){
-      clearTimeout(window._idleFallbackTimer);
+    // Bilibili／Odysee 沒有「播放結束」事件可以偵測，改用後台填的「歌曲長度」計時：
+    // 長度 + 8 秒（緩衝）後自動接下一首。沒填長度的歌曲，點播時仍需手動切歌，
+    // 隨機播放時則用 4.5 分鐘備援計時。
+    const queueIdAtLoad = isQueued ? currentQueueId : null;
+    if (durationSec > 0){
+      window._endTimer = setTimeout(() => {
+        if (queueIdAtLoad){ if (currentQueueId === queueIdAtLoad) handleVideoEnded(); }
+        else if (!currentQueueId) playRandomSong();
+      }, (durationSec + 8) * 1000);
+    } else if (!isQueued){
       window._idleFallbackTimer = setTimeout(() => { if (!currentQueueId) playRandomSong(); }, 4.5 * 60 * 1000);
     }
   }
@@ -598,8 +662,10 @@ function onYtStateChange(e){
 }
 
 function handleVideoEnded(){
-  if (currentQueueId) db.collection("queue").doc(currentQueueId).delete().catch(()=>{});
-  else playRandomSong();
+  if (currentQueueId){
+    db.collection("queue").doc(currentQueueId).delete()
+      .catch(err => showToast("自動接歌失敗：" + describeFirestoreError(err)));
+  } else playRandomSong();
 }
 
 /* ============ 頂部控制鍵 ============ */
@@ -614,8 +680,10 @@ function togglePlayPause(){
 }
 
 function skipSongFromTV(){
-  if (currentQueueId) db.collection("queue").doc(currentQueueId).delete();
-  else playRandomSong();
+  if (currentQueueId){
+    db.collection("queue").doc(currentQueueId).delete()
+      .catch(err => showToast("切歌失敗：" + describeFirestoreError(err)));
+  } else playRandomSong();
 }
 
 function handleRemoteCommand(action){
